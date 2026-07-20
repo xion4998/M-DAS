@@ -1,9 +1,31 @@
-import { useState, useMemo, useRef } from "react";
+/* eslint-disable */
+import { useState, useMemo, useRef, useEffect } from "react";
 
-const fontLink = document.createElement("link");
-fontLink.rel = "stylesheet";
-fontLink.href = "https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css";
-document.head.appendChild(fontLink);
+const EDIT_PASSWORD = "005"; // 수정 비밀번호
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, set, onValue } from "firebase/database";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBr-Vq8kDPrxNv8RojdrPa_GUgXth2tHmg",
+  authDomain: "teamnight-d909b.firebaseapp.com",
+  databaseURL: "https://teamnight-d909b-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "teamnight-d909b",
+  storageBucket: "teamnight-d909b.firebasestorage.app",
+  messagingSenderId: "440378727824",
+  appId: "1:440378727824:web:2c4bf51c6c57f8f7d96715"
+};
+
+let fdb = null;
+try { fdb = getDatabase(initializeApp(firebaseConfig)); } catch (e) {}
+const FB_PATH = "mdas";
+const dbSet = (path, val) => { try { if (fdb) set(ref(fdb, path), val); } catch (e) {} };
+
+try {
+  const fontLink = document.createElement("link");
+  fontLink.rel = "stylesheet";
+  fontLink.href = "https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css";
+  document.head.appendChild(fontLink);
+} catch (e) {}
 
 const ZONES = ["상부", "하부", "B", "C", "D", "P", "T", "W", "Z"];
 const ZONE_COLORS = {
@@ -50,18 +72,39 @@ export default function App() {
   const [parsing, setParsing] = useState(false);
   const [parseResult, setParseResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [editable, setEditable] = useState(() => {
+    try { return localStorage.getItem("mdas_editable") === "true"; } catch (e) { return false; }
+  });
+  const [showPwInput, setShowPwInput] = useState(false);
+  const [pwValue, setPwValue] = useState("");
+
+  const tryUnlock = () => {
+    if (pwValue === EDIT_PASSWORD) {
+      setEditable(true);
+      try { localStorage.setItem("mdas_editable", "true"); } catch (e) {}
+      setShowPwInput(false); setPwValue("");
+    } else {
+      setPwValue("");
+    }
+  };
+
+  const lockEdit = () => {
+    setEditable(false);
+    try { localStorage.setItem("mdas_editable", "false"); } catch (e) {}
+  };
+
   const doneInputRef = useRef(null);
   const inputPanelRef = useRef(null);
 
-  const saveData = (newData) => {
+  const saveData = (newData) => { if (!editable) return;
     setData(newData);
-    try { localStorage.setItem("mdas_data", JSON.stringify(newData)); } catch (e) {}
+    try { localStorage.setItem("mdas_data", JSON.stringify(newData)); } catch (e) {} dbSet("mdas/data", newData);
   };
 
-  const saveTotalBatches = (n) => {
+  const saveTotalBatches = (n) => { if (!editable) return;
     setTotalBatches(n);
     setTempTotal(String(n));
-    try { localStorage.setItem("mdas_totalBatches", String(n)); } catch (e) {}
+    try { localStorage.setItem("mdas_totalBatches", String(n)); } catch (e) {} dbSet("mdas/total", n);
   };
 
   const selectBatch = (b) => {
@@ -81,7 +124,17 @@ export default function App() {
   };
 
   const togglePicking = (zone) => {
-    saveData({ ...data, [zone]: { ...data[zone], picking: !data[zone].picking } });
+    const isPicking = data[zone].picking;
+    const newPicking = !isPicking;
+    saveData({
+      ...data,
+      [zone]: {
+        ...data[zone],
+        picking: newPicking,
+        // 피킹완료 시 전체 배치 자동 채움, 해제 시 그대로
+        done: newPicking ? totalBatches : data[zone].done,
+      }
+    });
   };
 
   const resetAll = () => {
@@ -161,11 +214,35 @@ export default function App() {
     return out;
   }, [data, totalBatches]);
 
+
+  // Firebase 실시간 구독
+  useEffect(() => {
+    if (!fdb) return;
+    const subs = [];
+    subs.push(onValue(ref(fdb, "mdas/data"), snap => {
+      const v = snap.val();
+      if (v) {
+        setData(v);
+        try { localStorage.setItem("mdas_data", JSON.stringify(v)); } catch (e) {}
+      }
+    }));
+    subs.push(onValue(ref(fdb, "mdas/total"), snap => {
+      const v = snap.val();
+      if (v) { setTotalBatches(v); setTempTotal(String(v)); }
+    }));
+    return () => subs.forEach(u => u());
+  }, []);
+
   const grand = useMemo(() => {
     const doneAll = ZONES.reduce((s, z) => s + zoneTotals[z].done, 0);
     const pct = totalBatches > 0 ? Math.round((doneAll / (totalBatches * ZONES.length)) * 100) : 0;
     return { done: doneAll, total: totalBatches, pct };
   }, [zoneTotals, totalBatches]);
+
+  // 대시보드용 요약 실시간 전송
+  useEffect(() => {
+    dbSet("summary/mdas", { pct: grand.pct, ts: Date.now() });
+  }, [grand.pct]);
 
   const currentDone = data[activeZone].done;
   const currentPct = currentDone !== "" && totalBatches > 0
@@ -189,6 +266,28 @@ export default function App() {
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <h1 style={{ fontSize: 28, fontWeight: 900, margin: 0, letterSpacing: "0.08em", background: "linear-gradient(135deg,#1e40af,#7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>M-DAS</h1>
         <div style={{ fontSize: 11, letterSpacing: "0.3em", color: S.textSub, textTransform: "uppercase", marginTop: 4, fontWeight: 500 }}>피킹 진행 현황</div>
+        {/* 잠금 상태 */}
+        <div style={{ marginTop: 10 }}>
+          {editable ? (
+            <button onClick={lockEdit} style={{ fontSize: 11, fontWeight: 700, padding: "5px 16px", borderRadius: 20, cursor: "pointer", background: "#dcfce7", border: "1px solid #86efac", color: "#15803d", fontFamily: "inherit" }}>
+              🔓 수정 가능 · 탭하여 잠금
+            </button>
+          ) : showPwInput ? (
+            <div style={{ display: "flex", gap: 6, justifyContent: "center", alignItems: "center" }}>
+              <input type="password" inputMode="numeric" value={pwValue} autoFocus
+                onChange={e => setPwValue(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && tryUnlock()}
+                placeholder="비밀번호"
+                style={{ width: 100, background: "#fff", border: "1.5px solid #7c3aed", borderRadius: 10, padding: "6px 10px", fontSize: 14, fontWeight: 700, outline: "none", textAlign: "center", fontFamily: "inherit" }} />
+              <button onClick={tryUnlock} style={{ fontSize: 12, fontWeight: 800, padding: "7px 14px", borderRadius: 10, cursor: "pointer", background: "#7c3aed", border: "none", color: "#fff", fontFamily: "inherit" }}>확인</button>
+              <button onClick={() => { setShowPwInput(false); setPwValue(""); }} style={{ fontSize: 12, fontWeight: 700, padding: "7px 10px", borderRadius: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#94a3b8", fontFamily: "inherit" }}>취소</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowPwInput(true)} style={{ fontSize: 11, fontWeight: 700, padding: "5px 16px", borderRadius: 20, cursor: "pointer", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#94a3b8", fontFamily: "inherit" }}>
+              🔒 보기 전용 · 탭하여 잠금해제
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 설정 바 */}
