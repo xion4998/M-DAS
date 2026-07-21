@@ -375,11 +375,11 @@ export default function App() {
               </button>
               <button onClick={() => togglePicking(z)} style={{
                 width: "100%", fontSize: 10, fontWeight: 800, padding: "5px 0", borderRadius: 7, cursor: "pointer", transition: "all 0.15s",
-                background: isBul ? "#dcfce7" : isPicking ? "#fef9c3" : "#f8fafc",
+                background: isPicking ? "#dcfce7" : "#f8fafc",
                 border: `1.5px solid ${isBul ? "#86efac" : isPicking ? "#fde047" : "#e2e8f0"}`,
                 color: isBul ? "#15803d" : isPicking ? "#a16207" : "#94a3b8",
               }}>
-                {isBul ? "✓ 불출완료" : isPicking ? "✓ 피킹완료" : "피킹완료"}
+                {isPicking ? "✓ 피킹완료" : "피킹완료"}
               </button>
             </div>
           );
