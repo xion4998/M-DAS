@@ -27,16 +27,22 @@ try {
   document.head.appendChild(fontLink);
 } catch (e) {}
 
-const ZONES = ["상부", "하부", "B", "C", "D", "P", "T", "W", "Z"];
+const ZONES = ["상부", "하부", "B", "C", "D", "P/Z", "T", "W", "V"];
 const ZONE_COLORS = {
   "상부": "#7c3aed", "하부": "#2563eb", "B": "#ea580c", "C": "#0891b2",
-  "D": "#dc2626", "P": "#059669", "T": "#db2777", "W": "#65a30d", "Z": "#d97706",
+  "D": "#dc2626", "P/Z": "#059669", "T": "#db2777", "W": "#65a30d", "V": "#6366f1",
 };
 
 const initData = () => {
   try {
     const saved = localStorage.getItem("mdas_data");
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const d = JSON.parse(saved);
+      if (d["P"] !== undefined && d["P/Z"] === undefined) { d["P/Z"] = d["P"]; delete d["P"]; }
+      if (d["Z"] !== undefined && d["V"] === undefined) { d["V"] = d["Z"]; delete d["Z"]; }
+      if (d["V"] === undefined) d["V"] = { done: "", picking: false };
+      return d;
+    }
   } catch (e) {}
   const d = {};
   ZONES.forEach(z => { d[z] = { done: "", picking: false }; });
@@ -110,7 +116,7 @@ export default function App() {
   const selectBatch = (b) => {
     setActiveBatch(b);
     saveData({ ...data, [activeZone]: { ...data[activeZone], done: b } });
-    setTimeout(() => inputPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+    setTimeout(() => inputPanelRef.current && inputPanelRef.current.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
   };
 
   const applyTotalBatches = () => {
@@ -242,7 +248,7 @@ export default function App() {
   // 대시보드용 요약 실시간 전송
   useEffect(() => {
     dbSet("summary/mdas", { pct: grand.pct, ts: Date.now() });
-  }, [grand.pct]);
+  }, [grand.pct, grand.flowPct, grand.shelfPct]);
 
   const currentDone = data[activeZone].done;
   const currentPct = currentDone !== "" && totalBatches > 0
