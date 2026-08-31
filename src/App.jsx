@@ -114,10 +114,9 @@ export default function App() {
   const doneInputRef = useRef(null);
   const inputPanelRef = useRef(null);
 
-  const saveData = (newData, zone) => { if (!editable) return;
+  const saveData = (newData) => { if (!editable) return;
     setData(newData);
-    try { localStorage.setItem("mdas_data", JSON.stringify(newData)); } catch (e) {}
-    if (zone && newData[zone]) { dbSet(`mdas/data/${zone}`, newData[zone]); } else { dbSet("mdas/data", newData); }
+    try { localStorage.setItem("mdas_data", JSON.stringify(newData)); } catch (e) {} dbSet("mdas/data", newData);
   };
 
   const saveTotalBatches = (n) => { if (!editable) return;
@@ -139,7 +138,7 @@ export default function App() {
 
   const handleDoneChange = (zone, val) => {
     const num = val === "" ? "" : Math.min(totalBatches, Math.max(0, parseInt(val) || 0));
-    saveData({ ...data, [zone]: { ...data[zone], done: num } }, zone);
+    saveData({ ...data, [zone]: { ...data[zone], done: num } });
   };
 
   const togglePicking = (zone) => {
