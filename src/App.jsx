@@ -18,7 +18,17 @@ const firebaseConfig = {
 let fdb = null;
 try { fdb = getDatabase(initializeApp(firebaseConfig)); } catch (e) {}
 const FB_PATH = "mdas";
-const dbSet = (path, val) => { try { if (fdb) set(ref(fdb, path), val); } catch (e) {} };
+const dbSet = (p, val) => { 
+  try { 
+    if (fdb) {
+      set(ref(fdb, p), val)
+        .then(() => console.log("Firebase write OK:", p))
+        .catch(e => console.error("Firebase write FAIL:", p, e));
+    } else {
+      console.error("fdb is null!");
+    }
+  } catch (e) { console.error("dbSet error:", e); } 
+};
 
 try {
   const fontLink = document.createElement("link");
