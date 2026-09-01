@@ -145,7 +145,7 @@ export default function App() {
   };
 
   const togglePicking = (zone) => {
-    const isPicking = data[zone].picking;
+    const isPicking = (data[zone]||{done:"",picking:false}).picking;
     const newPicking = !isPicking;
     saveData({
       ...data,
@@ -153,7 +153,7 @@ export default function App() {
         ...data[zone],
         picking: newPicking,
         // 피킹완료 시 전체 배치 자동 채움, 해제 시 그대로
-        done: newPicking ? totalBatches : data[zone].done,
+        done: newPicking ? totalBatches : (data[zone]||{done:"",picking:false}).done,
       }
     });
   };
@@ -228,7 +228,12 @@ export default function App() {
   const zoneTotals = useMemo(() => {
     const out = {};
     ZONES.forEach(z => {
-      const done = data[z].done === "" ? 0 : Number(data[z].done);
+      const zd = data[z] || { done: "", picking: false };
+      const done = zd.done === "" ? 0 : Number(zd.done);
+      out[z] = { done, pct: totalBatches > 0 ? Math.min(100, Math.round((done / totalBatches) * 100)) : 0 };
+    });
+    return out;
+  }, [data, totalBatches]);
       const pct = totalBatches > 0 ? Math.round((done / totalBatches) * 100) : 0;
       out[z] = { done, pct };
     });
@@ -272,7 +277,7 @@ export default function App() {
     dbSet("summary/mdas", { pct: grand.pct, ts: Date.now() });
   }, [grand.pct, grand.flowPct, grand.shelfPct]);
 
-  const currentDone = data[activeZone].done;
+  const currentDone = (data[activeZone]||{done:"",picking:false}).done;
   const currentPct = currentDone !== "" && totalBatches > 0
     ? Math.round((Number(currentDone) / totalBatches) * 100) : null;
 
@@ -388,7 +393,7 @@ export default function App() {
         {ZONES.map(z => {
           const { done, pct } = zoneTotals[z];
           const isActive = z === activeZone;
-          const isPicking = data[z].picking;
+          const isPicking = (data[z]||{}).picking;
           const isBul = pct === 100 && !isPicking;
           const color = ZONE_COLORS[z];
           return (
