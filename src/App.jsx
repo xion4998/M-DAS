@@ -427,7 +427,7 @@ export default function App() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(9,1fr)", gap: 4, marginBottom: 16 }}>
           {Array.from({ length: totalBatches }, (_, i) => i + 1).map(b => {
-            const done = data[activeZone].done;
+            const done = (data[activeZone]||{}).done;
             const completed = done !== "" && b <= Number(done);
             const isAct = activeBatch === b;
             return (
@@ -480,10 +480,10 @@ export default function App() {
           const timeStr = `${now.getHours()}시${now.getMinutes().toString().padStart(2,"0")}분`;
           const month = now.getMonth() + 1;
           const day = now.getDate();
-          const bulDone = ZONES.filter(z => zoneTotals[z].pct === 100 && !data[z].picking);
-          const pickDone = ZONES.filter(z => data[z].picking);
-          const inProgress = ZONES.filter(z => !data[z].picking && zoneTotals[z].pct < 100 && zoneTotals[z].done > 0);
-          const notStarted = ZONES.filter(z => !data[z].picking && zoneTotals[z].pct === 0);
+          const bulDone = ZONES.filter(z => zoneTotals[z].pct === 100 && !(data[z]||{}).picking);
+          const pickDone = ZONES.filter(z => (data[z]||{}).picking);
+          const inProgress = ZONES.filter(z => !(data[z]||{}).picking && zoneTotals[z].pct < 100 && zoneTotals[z].done > 0);
+          const notStarted = ZONES.filter(z => !(data[z]||{}).picking && zoneTotals[z].pct === 0);
           const lines = [
             `M-DAS (${timeStr})`,
             `${month}월${day}일자 ${totalBatches}배치`,
@@ -510,7 +510,7 @@ export default function App() {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {/* 불출완료 */}
           {(() => {
-            const bulDone = ZONES.filter(z => zoneTotals[z].pct === 100 && !data[z].picking);
+            const bulDone = ZONES.filter(z => zoneTotals[z].pct === 100 && !(data[z]||{}).picking);
             if (!bulDone.length) return null;
             return (
               <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -528,7 +528,7 @@ export default function App() {
 
           {/* 피킹완료 */}
           {(() => {
-            const pickDone = ZONES.filter(z => data[z].picking);
+            const pickDone = ZONES.filter(z => (data[z]||{}).picking);
             if (!pickDone.length) return null;
             return (
               <div style={{ background: "#fefce8", border: "1px solid #fde047", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -545,7 +545,7 @@ export default function App() {
           })()}
 
           {/* 진행중 */}
-          {ZONES.filter(z => !data[z].picking && zoneTotals[z].pct < 100).map(z => {
+          {ZONES.filter(z => !(data[z]||{}).picking && zoneTotals[z].pct < 100).map(z => {
             const { done, pct } = zoneTotals[z];
             return (
               <div key={z} style={{ display: "flex", alignItems: "center", gap: 10 }}>
