@@ -234,11 +234,6 @@ export default function App() {
     });
     return out;
   }, [data, totalBatches]);
-      const pct = totalBatches > 0 ? Math.round((done / totalBatches) * 100) : 0;
-      out[z] = { done, pct };
-    });
-    return out;
-  }, [data, totalBatches]);
 
 
   // Firebase 실시간 구독
